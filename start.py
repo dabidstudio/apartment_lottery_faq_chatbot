@@ -16,6 +16,7 @@ from langchain_community.document_loaders import PyMuPDFLoader
 from typing import List
 import os
 import fitz  # PyMuPDF
+import re
 
 ## 환경변수 불러오기
 from dotenv import load_dotenv,dotenv_values
@@ -58,7 +59,7 @@ def save_to_vector_store(documents: List[Document]) -> None:
 
 
 
-############################### 2단계 : PDF 문서를 벡터DB에 저장하는 함수들 ##########################
+############################### 2단계 : RAG 기능 구현과 관련된 함수들 ##########################
 
 
 ## 사용자 질문에 대한 RAG 처리
@@ -108,33 +109,34 @@ def get_rag_chain() -> Runnable:
 ############################### 3단계 : 응답결과와 문서를 함께 보도록 도와주는 함수 ##########################
 @st.cache_data(show_spinner=False)
 def convert_pdf_to_images(pdf_path: str, dpi: int = 250) -> List[str]:
-    doc = fitz.open(pdf_path)  # Open the document
+    doc = fitz.open(pdf_path)  # 문서 열기
     image_paths = []
     
-    # Create a directory to save images if it doesn't exist
+    # 이미지 저장용 폴더 생성
     output_folder = "PDF_이미지"
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
 
-    for page_num in range(len(doc)):  # Iterate through page numbers
-        page = doc.load_page(page_num)  # Load each page
-        # Increase the resolution by setting a higher dpi
-        zoom = dpi / 72  # 72 is the default dpi
-        mat = fitz.Matrix(zoom, zoom)
-        pix = page.get_pixmap(matrix=mat) # type: ignore # Render page to pixmap
+    for page_num in range(len(doc)):  #  각 페이지를 순회
+        page = doc.load_page(page_num)  # 페이지 로드
 
-        # Define the image path and save the image as PNG
-        image_path = os.path.join(output_folder, f"page_{page_num + 1}.png")  # Save images as page_1.png, page_2.png, etc.
-        pix.save(image_path)  # Save image as PNG
-        image_paths.append(image_path)  # Append the path to the list
+        zoom = dpi / 72  # 72이 디폴트 DPI
+        mat = fitz.Matrix(zoom, zoom)
+        pix = page.get_pixmap(matrix=mat) # type: ignore
+
+        image_path = os.path.join(output_folder, f"page_{page_num + 1}.png")  # 페이지 이미지 저장 page_1.png, page_2.png, etc.
+        pix.save(image_path)  # PNG 형태로 저장
+        image_paths.append(image_path)  # 경로를 저장
         
     return image_paths
 
 def display_pdf_page(image_path: str, page_number: int) -> None:
-    image_bytes = open(image_path, "rb").read()  # Read image from file
+    image_bytes = open(image_path, "rb").read()  # 파일에서 이미지 인식
     st.image(image_bytes, caption=f"Page {page_number}", output_format="PNG", width=600)
 
 
+def natural_sort_key(s):
+    return [int(text) if text.isdigit() else text for text in re.split(r'(\d+)', s)]
 
 def main():
     st.text(dotenv_values(".env"))
