@@ -1,4 +1,5 @@
 
+
 ## streamlit 관련 모듈 불러오기
 import streamlit as st
 from streamlit.runtime.uploaded_file_manager import UploadedFile
@@ -15,9 +16,10 @@ from langchain_community.document_loaders import PyMuPDFLoader
 from typing import List
 import os
 import fitz  # PyMuPDF
+import re
 
 ## 환경변수 불러오기
-from dotenv import load_dotenv
+from dotenv import load_dotenv,dotenv_values
 load_dotenv()
 
 
@@ -57,7 +59,7 @@ def save_to_vector_store(documents: List[Document]) -> None:
 
 
 
-############################### 2단계 : PDF 문서를 벡터DB에 저장하는 함수들 ##########################
+############################### 2단계 : RAG 기능 구현과 관련된 함수들 ##########################
 
 
 ## 사용자 질문에 대한 RAG 처리
@@ -105,115 +107,86 @@ def get_rag_chain() -> Runnable:
 
 
 ############################### 3단계 : 응답결과와 문서를 함께 보도록 도와주는 함수 ##########################
-
-
 @st.cache_data(show_spinner=False)
-def convert_pdf_to_images(pdf_path: str, dpi: int = 400) -> List[bytes]:
-    doc = fitz.open(pdf_path)  # open document
-    images = []
-    for page in doc:
-        # Increase the resolution by setting a higher dpi
-        zoom = dpi / 72  # 72 is the default dpi
+def convert_pdf_to_images(pdf_path: str, dpi: int = 250) -> List[str]:
+    doc = fitz.open(pdf_path)  # 문서 열기
+    image_paths = []
+    
+    # 이미지 저장용 폴더 생성
+    output_folder = "PDF_이미지"
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder)
+
+    for page_num in range(len(doc)):  #  각 페이지를 순회
+        page = doc.load_page(page_num)  # 페이지 로드
+
+        zoom = dpi / 72  # 72이 디폴트 DPI
         mat = fitz.Matrix(zoom, zoom)
         pix = page.get_pixmap(matrix=mat) # type: ignore
-        img_bytes = pix.tobytes("png")  # get image bytes in PNG format
-        images.append(img_bytes)
-    return images
-def display_pdf_page(image_bytes: bytes, page_number: int) -> None:
+
+        image_path = os.path.join(output_folder, f"page_{page_num + 1}.png")  # 페이지 이미지 저장 page_1.png, page_2.png, etc.
+        pix.save(image_path)  # PNG 형태로 저장
+        image_paths.append(image_path)  # 경로를 저장
+        
+    return image_paths
+
+def display_pdf_page(image_path: str, page_number: int) -> None:
+    image_bytes = open(image_path, "rb").read()  # 파일에서 이미지 인식
     st.image(image_bytes, caption=f"Page {page_number}", output_format="PNG", width=600)
 
 
-
-
+def natural_sort_key(s):
+    return [int(text) if text.isdigit() else text for text in re.split(r'(\d+)', s)]
 
 def main():
     st.set_page_config("청약 FAQ 챗봇", layout="wide")
 
-    # 세션상태 초기화
-    if "uploaded_file" not in st.session_state:
-        st.session_state.uploaded_file = []
-    if "page_number" not in st.session_state:
-        st.session_state.page_number = None
-    if "images" not in st.session_state:
-        st.session_state.images = []
-    if "response" not in st.session_state:
-        st.session_state.response = None
-    if "context" not in st.session_state:
-        st.session_state.context = []
-
-    # 칼럼 2개 생성
     left_column, right_column = st.columns([1, 1])
-
     with left_column:
         st.header("청약 FAQ 챗봇")
-        # 사용자가 파일을 업로드할 수 있는 컴포넌트
+
         pdf_doc = st.file_uploader("PDF Uploader", type="pdf")
-
-        if pdf_doc and st.button("PDF 업로드하기"):
+        button =  st.button("PDF 업로드하기")
+        if pdf_doc and button:
             with st.spinner("PDF문서 저장중"):
-                # Convert the UploadedFile object to a file path
                 pdf_path = save_uploadedfile(pdf_doc)
-                pdf_document = pdf_to_documents(pdf_path)  # Process the single PDF
+                pdf_document = pdf_to_documents(pdf_path)  #
                 smaller_documents = chunk_documents(pdf_document)
-            with st.spinner("벡터DB 생성중"):
                 save_to_vector_store(smaller_documents)
-            st.session_state.uploaded_file = pdf_doc
-
             # (3단계) PDF를 이미지로 변환해서 세션 상태로 임시 저장
             with st.spinner("PDF 페이지를 이미지로 변환중"):
                 images = convert_pdf_to_images(pdf_path)
                 st.session_state.images = images
 
-        # 사용자 질문
         user_question = st.text_input("PDF 문서에 대해서 질문해 주세요",
-                                    placeholder="무순위 청약 시에도 부부 중복신청이 가능한가요?")
+                                        placeholder="무순위 청약 시에도 부부 중복신청이 가능한가요?")
 
         if user_question:
             response, context = process_question(user_question)
-            st.session_state.response = response
-            st.session_state.context = context
-
-        if st.session_state.response:
-            st.write(st.session_state.response)
-            for idx, doc in enumerate(st.session_state.context):
+            st.write(response)
+            for document in context:
                 with st.expander("관련 문서"):
-                    st.write(doc.page_content)
-                    file_path = doc.metadata.get('source', '')
-                    page_number = doc.metadata.get('page', 0) + 1
-                    if file_path and page_number:
-                        button_key = f"link_{file_path}_{page_number}_{idx}"  # Add idx to make the key unique
-                        if st.button(f"🔎 {os.path.basename(file_path)} pg.{page_number}", key=button_key):
-                            st.session_state.page_number = str(page_number)
-                            print(st.session_state.page_number)
-
-                            st.rerun()
+                    st.write(document.page_content)
+                    file_path = document.metadata.get('source', '')
+                    page_number = document.metadata.get('page', 0) + 1
+                    button_key = f"link_{file_path}_{page_number}"
+                    reference_button = st.button(f"🔎 {os.path.basename(file_path)} pg.{page_number}", key=button_key)
+                    if reference_button:
+                        st.session_state.page_number = str(page_number)
 
     with right_column:
         # page_number 호출
         page_number = st.session_state.get('page_number')
-
         if page_number:
-            try:
-                page_number = int(page_number)
-                images = st.session_state.images
-                total_pages = len(images)
-                display_pdf_page(images[page_number - 1], page_number)
+            page_number = int(page_number)
+            image_folder = "pdf_이미지"
+            images = sorted(os.listdir(image_folder), key=natural_sort_key)
+            print(images)
+            image_paths = [os.path.join(image_folder, image) for image in images]
+            print(page_number)
+            print(image_paths[page_number - 1])
+            display_pdf_page(image_paths[page_number - 1], page_number)
 
-
-                # 이전, 다음
-                prev_col, _, next_col = st.columns([1, 5, 1])
-                with prev_col:
-                    if page_number > 1:
-                        if st.button("이전"):
-                            st.session_state.page_number = page_number - 1
-                            st.rerun()
-                with next_col:
-                    if page_number < total_pages:
-                        if st.button("다음"):
-                            st.session_state.page_number = page_number + 1
-                            st.rerun()      
-            except (ValueError, IndexError, FileNotFoundError) as e:
-                st.error(f"Error displaying PDF page: {str(e)}")
 
 if __name__ == "__main__":
     main()
