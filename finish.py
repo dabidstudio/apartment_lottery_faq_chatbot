@@ -119,7 +119,7 @@ def convert_pdf_to_images(pdf_path: str, dpi: int = 400) -> List[bytes]:
         img_bytes = pix.tobytes("png")  # get image bytes in PNG format
         images.append(img_bytes)
     return images
-def display_pdf_page(image_bytes: bytes, page_number: int, total_pages: int) -> None:
+def display_pdf_page(image_bytes: bytes, page_number: int) -> None:
     st.image(image_bytes, caption=f"Page {page_number}", output_format="PNG", width=600)
 
 
@@ -133,7 +133,7 @@ def main():
     if "uploaded_file" not in st.session_state:
         st.session_state.uploaded_file = []
     if "page_number" not in st.session_state:
-        st.session_state.page_number = 1
+        st.session_state.page_number = None
     if "images" not in st.session_state:
         st.session_state.images = []
     if "response" not in st.session_state:
@@ -162,7 +162,7 @@ def main():
             # (3단계) PDF를 이미지로 변환해서 세션 상태로 임시 저장
             with st.spinner("PDF 페이지를 이미지로 변환중"):
                 images = convert_pdf_to_images(pdf_path)
-                st.session_state.images.append(images)
+                st.session_state.images = images
 
         # 사용자 질문
         user_question = st.text_input("PDF 문서에 대해서 질문해 주세요",
@@ -189,7 +189,7 @@ def main():
                             st.rerun()
 
     with right_column:
-        # Safely get query parameters
+        # page_number 호출
         page_number = st.session_state.get('page_number')
 
         if page_number:
@@ -197,10 +197,10 @@ def main():
                 page_number = int(page_number)
                 images = st.session_state.images
                 total_pages = len(images)
-                display_pdf_page(images[page_number - 1], page_number, total_pages)
+                display_pdf_page(images[page_number - 1], page_number)
 
 
-                # Add pagination buttons in a single row
+                # 이전, 다음
                 prev_col, _, next_col = st.columns([1, 5, 1])
                 with prev_col:
                     if page_number > 1:
