@@ -41,5 +41,11 @@ OpenAI API Key 발급 방법 : https://github.com/dabidstudio/dabidstudio_guides
 - **시작 코드**: `start.py` 
 - **완성 코드**: `completed.py` 
 
+## 예시 질문
+1. 30세대 미만의 주택을 공급하려는 경우에도 전매제한을 적용받는지
+2. 주택청약종합저축은 증여 또는 명의변경이 가능한가요?
+3. 무순위 청약 시에도 부부 중복신청이 가능한가요?
+4. 혼인신고일이 2018. 9. 1.인 경우 언제까지 신혼부부 주택 특별공급의 신청이  가능한가요? 
+
 ## 기타
 - FAISS 뷰어 : https://faissviewer-hu2g6bbyxgcdjjumbsfysz.streamlit.app
