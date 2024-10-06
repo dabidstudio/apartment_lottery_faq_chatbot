@@ -1,23 +1,24 @@
 
+
 ## streamlit 관련 모듈 불러오기
 import streamlit as st
 from streamlit.runtime.uploaded_file_manager import UploadedFile
 
-from langchain_community.vectorstores import FAISS #벡터 DB
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings #AI모델, 임베딩
-from langchain_community.document_loaders import PyMuPDFLoader # PDF Parser
-from langchain.text_splitter import RecursiveCharacterTextSplitter # 청크 쪼개기 
-from langchain.prompts import PromptTemplate # 프롬프트 템플릿 
-from langchain.schema.output_parser import StrOutputParser # 
-from langchain_core.documents.base import Document # Document (Type)
-from langchain_core.runnables import Runnable # Runnable (Type)
 
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_core.documents.base import Document
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_community.vectorstores import FAISS
+from langchain.prompts import PromptTemplate
+from langchain_core.runnables import Runnable
+from langchain.schema.output_parser import StrOutputParser
+from langchain_community.document_loaders import PyMuPDFLoader
 from typing import List
 import os
 import fitz  # PyMuPDF
 
 ## 환경변수 불러오기
-from dotenv import load_dotenv, dotenv_values
+from dotenv import load_dotenv,dotenv_values
 load_dotenv()
 
 
@@ -105,31 +106,39 @@ def get_rag_chain() -> Runnable:
 
 
 ############################### 3단계 : 응답결과와 문서를 함께 보도록 도와주는 함수 ##########################
-
-
 @st.cache_data(show_spinner=False)
-## dpi 조정으로 해상도 조정 가능
-def convert_pdf_to_images(pdf_path: str, dpi: int = 400) -> List[bytes]:
-    doc = fitz.open(pdf_path)  # open document
-    images = []
-    for page in doc:
-        zoom = dpi / 72  # 디폴트 dpi : 72
-        mat = fitz.Matrix(zoom, zoom)
-        pix = page.get_pixmap(matrix=mat) # type: ignore
-        img_bytes = pix.tobytes("png")  # PNG 형태로 이미지
-        images.append(img_bytes)
-    return images
+def convert_pdf_to_images(pdf_path: str, dpi: int = 250) -> List[str]:
+    doc = fitz.open(pdf_path)  # Open the document
+    image_paths = []
+    
+    # Create a directory to save images if it doesn't exist
+    output_folder = "PDF_이미지"
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder)
 
-def display_pdf_page(image_bytes: bytes, page_number: int, total_pages: int) -> None:
+    for page_num in range(len(doc)):  # Iterate through page numbers
+        page = doc.load_page(page_num)  # Load each page
+        # Increase the resolution by setting a higher dpi
+        zoom = dpi / 72  # 72 is the default dpi
+        mat = fitz.Matrix(zoom, zoom)
+        pix = page.get_pixmap(matrix=mat) # type: ignore # Render page to pixmap
+
+        # Define the image path and save the image as PNG
+        image_path = os.path.join(output_folder, f"page_{page_num + 1}.png")  # Save images as page_1.png, page_2.png, etc.
+        pix.save(image_path)  # Save image as PNG
+        image_paths.append(image_path)  # Append the path to the list
+        
+    return image_paths
+
+def display_pdf_page(image_path: str, page_number: int) -> None:
+    image_bytes = open(image_path, "rb").read()  # Read image from file
     st.image(image_bytes, caption=f"Page {page_number}", output_format="PNG", width=600)
 
 
-############################### 메인함수 ##########################
-
 
 def main():
-    print(dotenv_values(".env"))
-    print("셋팅완료")
+    st.text(dotenv_values(".env"))
+    st.text("셋팅완료")
 
 
 if __name__ == "__main__":
