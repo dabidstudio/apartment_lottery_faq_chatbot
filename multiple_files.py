@@ -171,6 +171,7 @@ def main():
         if user_question:
             response, context = process_question(user_question)
             st.write(response)
+            i = 1
             for document in context:
                 with st.expander("관련 문서"):
                     st.write(document.page_content)
@@ -178,8 +179,9 @@ def main():
                     # Extract the file base name from the file path
                     file_base = os.path.splitext(os.path.basename(file_path))[0]
                     page_number = document.metadata.get('page', 0) + 1
-                    button_key = f"link_{file_base}_{page_number}"
+                    button_key = f"link_{file_base}_{page_number}_{i}"
                     reference_button = st.button(f"🔎 {file_base} pg.{page_number}", key=button_key)
+                    i = i + 1
                     if reference_button:
                         st.session_state.selected_file = file_base
                         st.session_state.page_number = page_number
