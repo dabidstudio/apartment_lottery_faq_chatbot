@@ -164,16 +164,17 @@ def main():
         if user_question:
             response, context = process_question(user_question)
             st.write(response)
+            i=0 
             for document in context:
                 with st.expander("관련 문서"):
                     st.write(document.page_content)
                     file_path = document.metadata.get('source', '')
                     page_number = document.metadata.get('page', 0) + 1
-                    button_key = f"link_{file_path}_{page_number}"
+                    button_key =f"link_{file_path}_{page_number}_{i}"
                     reference_button = st.button(f"🔎 {os.path.basename(file_path)} pg.{page_number}", key=button_key)
                     if reference_button:
                         st.session_state.page_number = str(page_number)
-
+                    i += 1
     with right_column:
         # page_number 호출
         page_number = st.session_state.get('page_number')
