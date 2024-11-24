@@ -1,7 +1,9 @@
 
 # 파이썬으로 RAG 웹서비스 만들기 : 청약 FAQ 챗봇
 
-### 가이드 영상 링크 : TBD
+### 파이썬 버전 : 3.12 
+- Win 11, 파이썬 3.13을 이용하는 경우 pip install -r requirements.txt로 패키지를 설치하는 과정에서 에러가 발생할 수 있습니다 ('24.11.24 기준)
+  
 ### 청약 FAQ 문서 링크 : [링크바로가기](https://www.molit.go.kr/USR/policyData/m_34681/dtl.jsp?search=&srch_dept_nm=&srch_dept_id=&srch_usr_nm=&srch_usr_titl=Y&srch_usr_ctnt=&search_regdate_s=&search_regdate_e=&psize=10&s_category=&p_category=&lcmspage=1&id=4765)
 
 ## 활용 기술
